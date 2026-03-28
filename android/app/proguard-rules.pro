@@ -1,0 +1,5 @@
+-keep class io.objectbox.relation.ToOne { *; }
+-keep class io.objectbox.relation.ToMany { *; }
+-keep class * extends io.objectbox.relation.RelationInfo { *; }
+-keep class * implements io.objectbox.EntityInfo { *; }
+-keep class com.example.farmer_app.models.** { *; }
