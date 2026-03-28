@@ -53,7 +53,7 @@ class AddFarmerDataPage extends StatefulWidget {
 }
 
 class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
- // final objectBoxService objectBoxService = objectBoxService();
+ // final hive_service hive_service = hive_service();
   final SupabaseClient supabase = Supabase.instance.client;
   bool isProductView = true;
 
@@ -95,7 +95,7 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
         // لە جیاتی ئەوەی یەکسەر سەیڤی بکەیت، ئەم لۆجیکە بەکاربهێنە:
         try {
           // ئەمە دەپشکنێت ئەگەر ئایدییەکە هەبێت Updateی دەکات، ئەگەر نا Insert
-          await objectBoxService.saveOrUpdateShop(shop); 
+          await hiveService.saveOrUpdateShop(shop); 
         } catch (e) {
           print("ئاگاداری: ئەم دانەیە پێشتر هەبوو یان کێشەی تێدابوو: ${shop.t_id_type}");
         }
@@ -108,13 +108,13 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
   } catch (e) {
     print("هەڵە لە کاتی Sync: $e");
     // ئەگەر ئینتەرنێت نەبوو، داتای لۆکاڵ پیشان بدە
-    final localShops = await objectBoxService.getShopsForFarmer(widget.farmerId);
+    final localShops = await hiveService.getShopsForFarmer(widget.farmerId);
     setState(() {
       shopList = localShops.map((s) => s.t_name_type!).toList();
     });
   }
   }
-    // لە ناو ObjectBoxService دایبنێ ئەگەر نەتەبوو
+    // لە ناو hive_service دایبنێ ئەگەر نەتەبوو
    
 
   Widget _buildShopRegistrationCard() {
@@ -307,7 +307,7 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
                                                 .eq('t_name_type', currentShopName)
                                                 .eq('t_id_farmer', widget.farmerId);
 
-                                               await objectBoxService.deleteLocalProduct(i);
+                                               await hiveService.deleteLocalProduct(i);
 
                                             // ٢. نوێکردنەوەی شاشەی ناوەوە (ئەگەر پێویست بکات)
                                             setDialogState(() {});
@@ -358,7 +358,7 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
     try {
       if (isProductView) {
         // ١. لێرەدا await پێویست نییە چونکە ئۆبجێکت بۆکس لیستەکە ڕاستەوخۆ دەداتەوە
-        final allProducts = await objectBoxService.getProductsForFarmer(widget.farmerId);
+        final allProducts = await hiveService.getProductsForFarmer(widget.farmerId);
         // ٢. فلتەرکردنی ئەو دانانەی کە سینک نەکراون
         final pending = allProducts.where((p) => p.is_synced == false).toList();
 
@@ -368,11 +368,11 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
           
           // گۆڕینی دۆخی سینک و پاشەکەوتکردنەوە لە ناوخۆ
           p.is_synced = true;
-          objectBoxService.saveProduct(p); // ئۆبجێکت بۆکس لێرەدا پێویستی بە await نییە
+          hiveService.saveProduct(p); // ئۆبجێکت بۆکس لێرەدا پێویستی بە await نییە
         }
       } else {
         // بەشی خەرجییەکان (Expenses)
-        final allExpenses = await objectBoxService.getExpensesForFarmer(widget.farmerId);
+        final allExpenses = await hiveService.getExpensesForFarmer(widget.farmerId);
         
         final pending = allExpenses.where((ex) => ex.is_synced == false).toList();
 
@@ -380,7 +380,7 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
           await supabase.from('tb_expenses').insert(e.toMap());
           
           e.is_synced = true;
-          objectBoxService.saveExpense(e);
+          hiveService.saveExpense(e);
         }
       }
       setState(() {});
@@ -414,7 +414,7 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
           add_date: DateTime.now(),
           is_synced: false,
         );
-        await objectBoxService.saveProduct(newProduct);
+        await hiveService.saveProduct(newProduct);
         _pNameController.clear(); _pPriceController.clear();
         _pCountController.clear(); 
       } else {
@@ -431,7 +431,7 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
           add_date: DateTime.now(),
           is_synced: false,
         );
-        await objectBoxService.saveExpense(newExpense);
+        await hiveService.saveExpense(newExpense);
         _eNameController.clear(); _eAmountController.clear();
         
       }
@@ -1208,8 +1208,8 @@ Widget _buildSupabaseDataList() {
   Widget _buildLocalBackupList() {
   return FutureBuilder(
     future: isProductView
-        ? objectBoxService.getProductsForFarmer(widget.farmerId)
-        : objectBoxService.getExpensesForFarmer(widget.farmerId),
+        ? hiveService.getProductsForFarmer(widget.farmerId)
+        : hiveService.getExpensesForFarmer(widget.farmerId),
     builder: (context, snapshot) {
       if (!snapshot.hasData) return const SizedBox.shrink();
 
@@ -1381,9 +1381,9 @@ Widget _buildSupabaseDataList() {
               Navigator.pop(context);
               // لێرە بەگوێرەی جۆری مۆدێلەکە دەیسڕینەوە
               if (isProductView) {
-                objectBoxService.productBox.remove(item.id); 
+                hiveService.productBox.delete(item.id); 
               } else {
-                objectBoxService.expenseBox.remove(item.id);
+                hiveService.expenseBox.delete(item.id);
               }
               setState(() {}); // لیستەکە نوێ دەکاتەوە
             },

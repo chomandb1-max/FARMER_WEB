@@ -280,7 +280,7 @@ class _DriverReportPageState extends State<DriverReportPage> {
           await supabase.from('tb_driver_work').delete().eq('id_work', id);
 
           // ٢. سڕینەوە لە ئۆبجێکت بۆکس
-          objectBoxService.deleteLocalDriverWork(id);
+          hiveService.deleteLocalDriverWork(id);
         }
       }
       

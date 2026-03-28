@@ -1,24 +1,50 @@
-import 'package:objectbox/objectbox.dart';
+import 'package:hive/hive.dart';
 
-@Entity() // گۆڕا بۆ Entity
-class DriverWork {
-  @Id() // ئایدی سەرەکی لێرە جێگیر دەبێت
+// ئەم دێڕە بۆ دروستکردنی فایلی یارمەتیدەرە، دەستی لێ مەدە
+part 'driver_work_model.g.dart';
+
+@HiveType(typeId: 1)
+class DriverWork extends HiveObject {
+  
+  @HiveField(0)
   int id;
-  final int? w_id_driver; // ئایدی سایەقەکە
+
+  @HiveField(1)
+  final int? w_id_driver;
+
+  @HiveField(2)
   final int? d_id_farmer;
+
+  @HiveField(3)
   final String? d_name_farmer;
+
+  @HiveField(4)
   final String? type_work;
+
+  @HiveField(5)
   final String? name_place_work;
+
+  @HiveField(6)
   final String? time_work_hours;
+
+  @HiveField(7)
   final String? time_work_minutes;
+
+  @HiveField(8)
   final String? count_work;
+
+  @HiveField(9)
   final String? price_work;
+
+  @HiveField(10)
   final String? pay_type_work;
+
+  @HiveField(11)
   final bool is_synced;
 
   DriverWork({
     this.w_id_driver,
-    this.id = 0, // هەمیشە وەک 0 دەستی پێ بکە بۆ ئەوەی خۆی ئۆتۆ ئینکرێمێنت بێت
+    this.id = 0, 
     this.d_id_farmer,
     this.d_name_farmer,
     this.type_work,
@@ -31,7 +57,7 @@ class DriverWork {
     this.is_synced = false,
   });
 
-  // لۆژیکی toMap وەک خۆی ماوەتەوە بۆ ئەوەی پەیوەندی سوپابەیس تێک نەچێت
+  // پاراستنی لۆجیکی گۆڕینی داتا بۆ سوپابەیس بە هەمان ناوەکان
   Map<String, dynamic> toMap() {
     return {
       'w_id_driver': w_id_driver,

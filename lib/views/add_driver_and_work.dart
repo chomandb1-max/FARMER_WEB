@@ -45,7 +45,7 @@ class AddDriverAndWorkPage extends StatefulWidget {
 }
 
 class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
-  //final objectBoxService objectBoxService = objectBoxService();
+  //final hiveService hiveService = hiveService();
   final SupabaseClient supabase = Supabase.instance.client;
 
   final TextEditingController _nameFelahController = TextEditingController();
@@ -122,7 +122,7 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
 
         try {
           // وەک پڕۆدەکتەکە لێرە بانگی دەکەین بۆ سەیڤکردن یان ئەپدەیت
-          await objectBoxService.saveOrUpdateDriver(driver); 
+          await hiveService.saveOrUpdateDriver(driver); 
         } catch (e) {
           print("ئاگاداری: کێشە لە سەیڤکردنی لۆکاڵی جوتیار: ${driver.d_id_farmer}");
         }
@@ -138,7 +138,7 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
   } catch (e) {
     print("هەڵە لە کاتی Sync: $e");
     // ئەگەر ئینتەرنێت نەبوو، داتای ناو مۆبایلەکە پیشان بدە
-    final localDrivers = await objectBoxService.getDriversForUser(widget.farmerId);
+    final localDrivers = await hiveService.getDriversForUser(widget.farmerId);
     setState(() {
       felahList = localDrivers;
     });
@@ -159,8 +159,8 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
     ..is_synced = false;
 
   // ١. یەکەم جار پاشەکەوتکردن لە مۆبایل (ئایدی ناوخۆیی وەردەگرێت)
-  int localId = await objectBoxService.driverBox.put(newDriver);
-
+  await hiveService.driverBox.put(newDriver.id, newDriver);
+  int localId = newDriver.id;
   try {
     // ٢. ناردن بۆ سوپابەیس و وەرگرتنەوەی داتا ڕاستەقینەکە (بە ئایدییەکەیەوە)
     final response = await supabase.from('tb_driver').insert({
@@ -176,7 +176,7 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
       newDriver.d_id_farmer = response['d_id_farmer']; // ئایدییە ڕاستەقینەکەی سێرڤەر
       newDriver.is_synced = true;
       
-      await objectBoxService.driverBox.put(newDriver); // نوێکردنەوە نەک زۆرکردن
+      await hiveService.driverBox.put(localId ,newDriver); // نوێکردنەوە نەک زۆرکردن
       _showSnackBar("جوتیار تۆمار کرا", Colors.green);
     }
   } catch (e) {
@@ -194,14 +194,14 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
 
   Future<void> _syncPendingWork() async {
     try {
-      final pendingWorks = await objectBoxService.getUnsyncedWorks();
+      final pendingWorks = await hiveService.getUnsyncedWorks();
         if (pendingWorks.isEmpty) return;
 
           for (var work in pendingWorks) {
             try {
         // لێرە toMap بەکاردێنین کە خۆی داتاکان دەگۆڕێت بۆ ژمارە پێش ناردن
               await supabase.from('tb_driver_work').insert(work.toMap());
-              await objectBoxService.deleteLocalDriverWork(work.id); 
+              await hiveService.deleteLocalDriverWork(work.id); 
             } catch (itemError) {
           debugPrint("Error syncing item: $itemError");
         continue;
@@ -239,7 +239,7 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
   is_synced: false,
     );
     // پاشەکەوتکردن لە ئیسار
-    await objectBoxService.saveDriverWork(newWork);
+    await hiveService.saveDriverWork(newWork);
     
     _showSnackBar("کارەکە تۆمار کرا", Colors.green);
     
@@ -308,7 +308,7 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
                               }
                    
                             // ٢. سڕینەوە لە ئۆبجێکت بۆکس
-                           await objectBoxService.deleteLocalDriverWork(f.id);
+                           await hiveService.deleteLocalDriverWork(f.id);
                    
                           // ٣. نوێکردنەوەی لیستەکان
                             await _fetchAndSyncFelahs();
@@ -1064,7 +1064,7 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
 
   Widget _buildWorkLocalBackupList() {
   return FutureBuilder<List<DriverWork>>(
-    future: objectBoxService.getUnsyncedWorks(),
+    future: hiveService.getUnsyncedWorks(),
     builder: (context, snapshot) {
       final list = snapshot.data ?? [];
       if (list.isEmpty) return const SizedBox.shrink();
@@ -1142,7 +1142,7 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
 
                               // ئەگەر وەڵامەکە بەڵێ بوو
                           if (confirm) {
-                            await objectBoxService.deleteLocalDriverWork(w.id);
+                            await hiveService.deleteLocalDriverWork(w.id);
                             setState(() {});
                                 // نیشاندانی نامەیەکی خێرا بۆ سڕینەوە
                             ScaffoldMessenger.of(context).showSnackBar(

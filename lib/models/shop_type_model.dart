@@ -1,27 +1,35 @@
-import 'package:objectbox/objectbox.dart';
+import 'package:hive/hive.dart';
 
-@Entity() // گۆڕا بۆ Entity
-class ShopTypeModel {
-  @Id() 
-  int id; // لێرە جۆری ئایدی دەبێت تەنها int بێت (نۆڵ نابێت)
+// فایلی یارمەتیدەر بۆ دروستکردنی ئەداپتەر
+part 'shop_type_model.g.dart';
 
-  @Unique() // جێگرەوەی Index(unique: true) ی ئیسارە
+@HiveType(typeId: 4)
+class ShopTypeModel extends HiveObject {
+  
+  @HiveField(0)
+  int id; 
+
+  @HiveField(1)
   int? t_id_type; 
 
+  @HiveField(2)
   int? t_id_farmer; 
+
+  @HiveField(3)
   String? t_name_type; 
   
+  @HiveField(4)
   bool is_synced; 
 
   ShopTypeModel({
-    this.id = 0, // هەمیشە بە 0 دەست پێ دەکات
+    this.id = 0, 
     this.t_id_type,
     this.t_id_farmer,
     this.t_name_type,
     this.is_synced = false,
   });
 
-  // لۆژیکی fromMap وەک خۆی ماوەتەوە
+  // پاراستنی لۆجیکی fromMap بۆ وەرگرتنی داتا لە سوپابەیس
   factory ShopTypeModel.fromMap(Map<String, dynamic> map) {
     return ShopTypeModel(
       t_id_type: map['t_id_type'],
@@ -31,7 +39,7 @@ class ShopTypeModel {
     );
   }
 
-  // لۆژیکی toMap وەک خۆی ماوەتەوە
+  // پاراستنی لۆجیکی toMap بۆ ناردنی داتا بۆ سوپابەیس
   Map<String, dynamic> toMap() {
     return {
       't_id_farmer': t_id_farmer,

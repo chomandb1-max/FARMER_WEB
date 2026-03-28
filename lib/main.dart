@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; 
-import 'services/objectbox_service.dart'; 
+import 'services/hive_service.dart'; 
 import 'views/add_product_page.dart'; 
 import 'views/add_driver_and_work.dart'; 
 import 'views/help_page.dart';
@@ -13,11 +13,10 @@ const kPrimaryGreen = Color(0xFF0A2E29);
 const kSecondaryGreen = Color(0xFF144D45); 
 const kAccentNeon = Color(0xFF4CA67D); 
 
-late ObjectBoxService objectBoxService;
-
+late HiveService hiveService;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  objectBoxService = await ObjectBoxService.create();
+  hiveService = await HiveService.create();
 
   await Supabase.initialize(
     url: 'https://fljchnkqhaopmlexsuru.supabase.co',

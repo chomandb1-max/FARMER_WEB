@@ -45,7 +45,7 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
 }
 
 class _DriverExpensePageState extends State<DriverExpensePage> {
- // final objectBoxService objectBoxService = objectBoxService();
+ // final hive_service hive_service = hive_service();
   final SupabaseClient supabase = Supabase.instance.client;
 
   final _eNameController = TextEditingController();
@@ -55,13 +55,13 @@ class _DriverExpensePageState extends State<DriverExpensePage> {
 
   Future<void> _syncPendingExpenses() async {
     try {
-      final allLocal = await objectBoxService.getExpensesForFarmer(widget.driverId);
+      final allLocal = await hiveService.getExpensesForFarmer(widget.driverId);
       final pending = allLocal.where((ex) => ex.is_synced == false).toList();
       if (pending.isEmpty) return;
       for (var e in pending) {
         try {
           await supabase.from('tb_expenses').insert(e.toMap());
-          await objectBoxService.deleteLocalExpense(e.id); // یەکەم: سڕینەوە لە ئۆبجێکت بۆکس
+          await hiveService.deleteLocalExpense(e.id); // یەکەم: سڕینەوە لە ئۆبجێکت بۆکس
         } catch (e) { continue; }
       }
       if (mounted) setState(() {});
@@ -86,7 +86,7 @@ class _DriverExpensePageState extends State<DriverExpensePage> {
         add_date: DateTime.now(),
         is_synced: false,
       );
-      await objectBoxService.saveExpense(newExpense);
+      await hiveService.saveExpense(newExpense);
       _eNameController.clear();
       _eAmountController.clear();
       _showSnackBar("تۆمار کرا", Colors.green);
@@ -234,7 +234,7 @@ class _DriverExpensePageState extends State<DriverExpensePage> {
 
           // ٢. سڕینەوە لە ئۆبجێکت بۆکس (ئەگەر فەنکشنی سڕینەوەی خەرجیت هەیە)
           // ئەگەر ناوی فەنکشنەکەت جیاوازە، لێرە بیگۆڕە
-          objectBoxService.deleteExpense(id);
+          hiveService.deleteExpense(id);
         }
       }
       
@@ -495,7 +495,7 @@ class _DriverExpensePageState extends State<DriverExpensePage> {
 
   Widget _buildLocalList() {
     return FutureBuilder(
-      future: objectBoxService.getExpensesForFarmer(widget.driverId),
+      future: hiveService.getExpensesForFarmer(widget.driverId),
       builder: (context, snapshot) {
         final list = (snapshot.data as List?)?.where((e) => e.is_synced == false).toList() ?? [];
         if (list.isEmpty) return const SizedBox.shrink();

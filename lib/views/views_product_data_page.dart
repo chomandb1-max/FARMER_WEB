@@ -484,9 +484,9 @@ class _FarmerSummaryPageState extends State<FarmerSummaryPage> {
         
         // سڕینەوە لە ئۆبجێکت بۆکس
         if (isProductView) {
-          objectBoxService.deleteProduct(id); 
+          hiveService.deleteProduct(id); 
         } else {
-          objectBoxService.deleteExpense(id);
+          hiveService.deleteExpense(id);
         }
       }
 
@@ -532,9 +532,9 @@ class _FarmerSummaryPageState extends State<FarmerSummaryPage> {
 
       // ٢. سڕینەوە لە ناوخۆ (ObjectBox)
       if (isProductView) {
-        objectBoxService.deleteProduct(id);
+        hiveService.deleteProduct(id);
       } else {
-        objectBoxService.deleteExpense(id);
+        hiveService.deleteExpense(id);
       }
 
       // ٣. نوێکردنەوەی شاشەکە و لابردنی لە ناو لیستی فلاتەرەکە
