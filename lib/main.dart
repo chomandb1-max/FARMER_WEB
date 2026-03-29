@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; 
@@ -7,16 +6,23 @@ import 'views/add_product_page.dart';
 import 'views/add_driver_and_work.dart'; 
 import 'views/help_page.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart' as path_provider;
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter/foundation.dart'; // ئەمە زیاد بکە بۆ ناسینەوەی وێب
+import 'package:flutter/services.dart'; // بۆ SystemNavigator پێویستە
+
 
 const kBgLight = Color(0xFFDCE6DF); 
 const kPrimaryGreen = Color(0xFF0A2E29); 
 const kSecondaryGreen = Color(0xFF144D45); 
 const kAccentNeon = Color(0xFF4CA67D); 
+bool isNum = true;
 
 late HiveService hiveService;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   hiveService = await HiveService.create();
+
 
   await Supabase.initialize(
     url: 'https://fljchnkqhaopmlexsuru.supabase.co',
@@ -29,7 +35,6 @@ void main() async {
   final String? savedCode = prefs.getString('farmer_code');
   final String? savedJob = prefs.getString('job_title');
   final String? savedName = prefs.getString('farmer_name');
-
   Widget startPage;
   
   if (savedId != null && savedCode != null && savedJob != null) {
@@ -54,12 +59,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Farmer App', // ناوی ئەپەکەت
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
+        primarySwatch: Colors.green,
         fontFamily: 'KurdishFont', 
-
       ),
+      
       builder: (context, child) {
         return MediaQuery(
           // ئەم دێڕە ڕێگری دەکات لە گەورەبوونی فۆنت
@@ -82,6 +89,28 @@ class applink {
     }
   }
 }
+class EnglishNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    String text = newValue.text;
+    
+    // لیستی گۆڕینی ژمارەکان
+    const kurdish = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+    for (int i = 0; i < 10; i++) {
+      text = text.replaceAll(kurdish[i], english[i]);
+      text = text.replaceAll(persian[i], english[i]);
+    }
+
+    return newValue.copyWith(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+  }
 
 // لە ناو initState بانگی بکە
 
@@ -200,9 +229,9 @@ class HomePage extends StatelessWidget {
                           onPressed: () => _showLoginDialog(context),
                           icon: const Icon(Icons.history_rounded, size: 18, color: kPrimaryGreen),
                           label: Text(
-                            "پێشتر کۆدم هەبووە؟ بگەڕێ..", 
+                            "پێشتر کۆدم هەبووە ؟ بگەڕێ..", 
                             style: TextStyle(
-                              fontSize: isSmallScreen ? 16 : 20, 
+                              fontSize: isSmallScreen ? 15 : 18, 
                               color: kPrimaryGreen, 
                               fontWeight: FontWeight.bold
                             )
@@ -218,7 +247,7 @@ class HomePage extends StatelessWidget {
           ),
           
           Padding(
-            padding: EdgeInsets.fromLTRB(70, 0, 70, MediaQuery.of(context).size.height * 0.18),
+            padding: EdgeInsets.fromLTRB(70, 0, 70, MediaQuery.of(context).size.height * 0.14),
             child: Container(
               height: 60,
               width: double.infinity,
@@ -370,6 +399,8 @@ class HomePage extends StatelessWidget {
       ],
     ));
   }
+  
+  
 
   void _showCreateProfileDialog(BuildContext context, String code, String job) {
     final nameController = TextEditingController();
@@ -379,8 +410,12 @@ class HomePage extends StatelessWidget {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(controller: nameController, textAlign: TextAlign.right, decoration: const InputDecoration(labelText: "ناو دوانی(نازناو)")),
-          TextField(controller: phoneController, textAlign: TextAlign.right, decoration: const InputDecoration(labelText: "ژمارە مۆبایل"), keyboardType: TextInputType.phone),
+          TextField(controller: nameController, textAlign: TextAlign.right,
+           decoration: const InputDecoration(labelText: "ناو دوانی(نازناو)")),
+          TextField(controller: phoneController, textAlign: TextAlign.right, 
+          decoration: const InputDecoration(labelText: "ژمارە مۆبایل"),
+          inputFormatters: isNum ? [ EnglishNumberFormatter()] : [],
+           keyboardType: TextInputType.phone),
         ],
       ),
       actions: [

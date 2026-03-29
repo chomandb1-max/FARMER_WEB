@@ -35,6 +35,29 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
   }
   }
 
+  class EnglishNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    String text = newValue.text;
+    
+    // لیستی گۆڕینی ژمارەکان
+    const kurdish = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+    for (int i = 0; i < 10; i++) {
+      text = text.replaceAll(kurdish[i], english[i]);
+      text = text.replaceAll(persian[i], english[i]);
+    }
+
+    return newValue.copyWith(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+  }
+
 
 class AddFarmerDataPage extends StatefulWidget {
   final int farmerId;
@@ -73,46 +96,51 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
 
   List<String> shopList = ["دوکانەکان"];
   
-   @override
+     @override
   void initState() {
     super.initState();
     Future.delayed(Duration.zero, () => _fetchAndSyncShops());  }
 
   Future<void> _fetchAndSyncShops() async {
-  try {
-    final response = await supabase
-        .from('tb_type_all')
-        .select()
-        .eq('t_id_farmer', widget.farmerId);
+    try {
+      final response = await supabase
+          .from('tb_type_all')
+          .select()
+          .eq('t_id_farmer', widget.farmerId)
+          .order('t_id_type', ascending: false);
+      if (response != null && response is List) {
+        // ١. یەکەم هەنگاوی گرنگ: پاککردنەوەی سندوقی لۆکاڵی دوکانەکان
+        // بۆ ئەوەی ناوە سڕاوەکان لە مۆبایلەکەدا نەمێنن و دەبڵ نەبن
+        await hiveService.shopBox.clear(); 
 
-    if (response != null && response is List) {
-      List<String> tempNames = [];
-      
-      for (var item in response) {
-        final shop = ShopTypeModel.fromMap(item);
-        tempNames.add(shop.t_name_type!);
-
-        // لە جیاتی ئەوەی یەکسەر سەیڤی بکەیت، ئەم لۆجیکە بەکاربهێنە:
-        try {
-          // ئەمە دەپشکنێت ئەگەر ئایدییەکە هەبێت Updateی دەکات، ئەگەر نا Insert
-          await hiveService.saveOrUpdateShop(shop); 
-        } catch (e) {
-          print("ئاگاداری: ئەم دانەیە پێشتر هەبوو یان کێشەی تێدابوو: ${shop.t_id_type}");
+        List<String> tempNames = [];
+        
+        for (var item in response) {
+          final shop = ShopTypeModel.fromMap(item);
+          
+          // ٢. پاشەکەوتکردن لە ناو Hive بە ئایدییە ڕاستەقینەکەی سوپابەیس
+          await hiveService.shopBox.add(shop); 
+          
+          tempNames.add(shop.t_name_type!);
         }
-      }
 
+        setState(() {
+          // ئەگەر لیستەکە خاڵی بوو، ناوێکی بنەڕەتی دابنێ
+          shopList = tempNames.isNotEmpty ? tempNames : ["دوکانەکان"];
+        });
+      }
+    } catch (e) {
+      print("هەڵە لە کاتی Sync: $e");
+      // ٣. ئەگەر ئینتەرنێت نەبوو، تەنها داتای ناو مۆبایلەکە (Offline) بخوێنەوە
+      final localShops = await hiveService.getShopsForFarmer(widget.farmerId);
       setState(() {
-        shopList = tempNames.isNotEmpty ? tempNames : ["دوکانی سەرەکی"];
+        if (localShops.isNotEmpty) {
+          shopList = localShops.map((s) => s.t_name_type!).toList();
+        } else {
+          shopList = ["دوکانی سەرەکی"];
+        }
       });
     }
-  } catch (e) {
-    print("هەڵە لە کاتی Sync: $e");
-    // ئەگەر ئینتەرنێت نەبوو، داتای لۆکاڵ پیشان بدە
-    final localShops = await hiveService.getShopsForFarmer(widget.farmerId);
-    setState(() {
-      shopList = localShops.map((s) => s.t_name_type!).toList();
-    });
-  }
   }
     // لە ناو hive_service دایبنێ ئەگەر نەتەبوو
    
@@ -247,7 +275,8 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
               stream: supabase
                   .from('tb_type_all')
                   .stream(primaryKey: ['id'])
-                  .eq('t_id_farmer', widget.farmerId),
+                  .eq('t_id_farmer', widget.farmerId)
+                  .order('t_id_type', ascending: false),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const SizedBox(
@@ -556,11 +585,11 @@ Widget build(BuildContext context) {
 
             flexibleSpace: FlexibleSpaceBar(
               background: Padding(
-                padding: const EdgeInsets.only(top: 70, left: 20, right: 30),
+                padding: const EdgeInsets.only(top: 60, left: 20, right: 30),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -880,7 +909,8 @@ Widget build(BuildContext context) {
           Text(isProductView ? "بەشی تۆمارکردنی مەوادەکان(کڕین)" : "بەشی مەسروفی ڕۆژانە", style: TextStyle(fontWeight: FontWeight.bold, color: isProductView ? Colors.black87 : Colors.grey.shade900, fontSize: 20)),
           const Divider(height: 25),
           if (isProductView) ...[
-            _buildShopDropdown(), const SizedBox(height: 10),
+            _buildShopDropdown(),
+             const SizedBox(height: 10),
             _myTextField(_pNameController, "ناوی مەواد", Icons.shopping_bag_outlined), const SizedBox(height: 10),
             Row(children: [Expanded(child: _myTextField(_pCountController, "دانە", Icons.numbers, isNum: true)),
              const SizedBox(width: 10),
@@ -904,10 +934,11 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _buildShopDropdown() {
+    Widget _buildShopDropdown() {
   return Directionality(
     textDirection: TextDirection.rtl, // هەموو شتێک دەبات بۆ لای ڕاست
     child: DropdownButtonFormField<String>(
+       isExpanded: true,
       // گۆڕینی initialValue بۆ value
       initialValue: shopList.contains(_pShopController.text) && _pShopController.text.isNotEmpty 
           ? _pShopController.text 
@@ -916,32 +947,33 @@ Widget build(BuildContext context) {
       style: TextStyle(
         color: Colors.grey.shade900, 
         fontSize: 18, 
+        height: 1.2,
         fontWeight: FontWeight.w500,
         fontFamily: 'KurdishFont' // ئەگەر فۆنتی تایبەتت هەیە لێرە دایبنێ
       ),
-      
-      decoration: _inputStyle("دوکانەکە هەڵبژێرە", Icons.store_outlined),
-      
-      // ڕێکخستنی شێوەی نیشاندانی لیستەکە
+       decoration: _inputStyle("ناوی دوکانەکان", Icons.store_outlined).copyWith(
+       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10), // ٣. لای ڕاست بکە بە 0
+       ),
+      // ڕێکخستنی شێوەی نیشاندانی لیستەک
       items: shopList.map((s) => DropdownMenuItem(
-        value: s, 
+        value: s,
         child: Align(
           alignment: Alignment.centerRight, // نووسینی ناو لیستەکە دەبات بۆ لای ڕاست
           child: Text(s),
         ),
-      )).toList(),
-      
+      )).toList(),   
+
       onChanged: (val) {
         setState(() {
           _pShopController.text = val!;
         });
       },
-      
-      // وای لێ دەکات نوسینەکە هەموو پاناییەکە بگرێتەوە
-      isExpanded: true, 
+     // isExpanded: true, 
     ),
   );
   }
+
+
 
   Widget _buildTypeSelectors() {
     return Column(children: [
@@ -1420,10 +1452,10 @@ Widget _buildSupabaseDataList() {
       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))]);
   }
 
-  InputDecoration _inputStyle(String hint, IconData icon) {
+    InputDecoration _inputStyle(String hint, IconData icon) {
   return InputDecoration(
     // بەکارهێنانی prefixIcon وەک خۆی یان suffixIcon بە کەیفی خۆت
-    prefixIcon: Icon(icon, color: Colors.green.shade600, size: 20),
+    suffixIcon: Icon(icon, color: Colors.green.shade600, size: 20),
     hintText: hint,
     // لێرە textDirection-ەکەمان لاداوە چونکە نای ناسێتەوە
     filled: true,
@@ -1438,7 +1470,7 @@ Widget _buildSupabaseDataList() {
         borderSide: BorderSide(color: Colors.green.shade400)),
   );
   }
-
+  
 
   Widget _myTextField(TextEditingController ctrl, String hint, IconData icon, {bool isNum = false}) {
   return TextField(
@@ -1447,8 +1479,11 @@ Widget _buildSupabaseDataList() {
     textDirection: TextDirection.rtl,
     // ڕێکخستنی نووسینەکە بۆ لای ڕاست
     textAlign: TextAlign.right,
-    keyboardType: isNum ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
-    inputFormatters: isNum ? [ThousandsSeparatorInputFormatter()] : [],
+    keyboardType: isNum ? const TextInputType.numberWithOptions(decimal: true,signed: false) : TextInputType.text,
+    inputFormatters: isNum ? [
+    EnglishNumberFormatter(), // ١. سەرەتا ژمارەکان دەگۆڕێت بۆ ئینگلیزی
+    ThousandsSeparatorInputFormatter(), // ٢. پاشان فۆرماتی سێ سێ جیادەکاتەوە
+           ] : [],
     decoration: _inputStyle(hint, icon),
     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
   );

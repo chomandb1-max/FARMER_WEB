@@ -12,17 +12,16 @@ class HiveService {
 
   static Future<HiveService> create() async {
     if (_instance == null) {
-      // دەستپێکردنی Hive بۆ فلەتەر
-      await Hive.initFlutter();
+      // لێرە initFlutter لادەبەین چونکە لە main بە مەرجی وێب/مۆبایل دامان ناوە
+      
+      // تۆمارکردنی ئەداپتەرەکان (ئەمانە وەک خۆی بمێنێتەوە)
+      if (!Hive.isAdapterRegistered(DriverAdapter().typeId)) Hive.registerAdapter(DriverAdapter());
+      if (!Hive.isAdapterRegistered(DriverWorkAdapter().typeId)) Hive.registerAdapter(DriverWorkAdapter());
+      if (!Hive.isAdapterRegistered(ExpenseModelAdapter().typeId)) Hive.registerAdapter(ExpenseModelAdapter());
+      if (!Hive.isAdapterRegistered(FarmerProductModelAdapter().typeId)) Hive.registerAdapter(FarmerProductModelAdapter());
+      if (!Hive.isAdapterRegistered(ShopTypeModelAdapter().typeId)) Hive.registerAdapter(ShopTypeModelAdapter());
 
-      // تۆمارکردنی ئەداپتەرەکان (ئەمانە دوای build_runner دروست دەبن)
-      Hive.registerAdapter(DriverAdapter());
-      Hive.registerAdapter(DriverWorkAdapter());
-      Hive.registerAdapter(ExpenseModelAdapter());
-      Hive.registerAdapter(FarmerProductModelAdapter());
-      Hive.registerAdapter(ShopTypeModelAdapter());
-
-      // کردنەوەی سندوقەکان (Boxes)
+      // کردنەوەی سندوقەکان
       await Hive.openBox<Driver>('drivers');
       await Hive.openBox<DriverWork>('driver_works');
       await Hive.openBox<ExpenseModel>('expenses');
@@ -46,8 +45,7 @@ class HiveService {
   Future<void> saveProduct(FarmerProductModel newProduct) async {
     // ئەگەر ئایدی سفر بوو، ئایدییەکی نوێی بۆ دروست دەکەین
     if (newProduct.id == 0) {
-      newProduct.id = DateTime.now().millisecondsSinceEpoch;
-    }
+      newProduct.id = DateTime.now().millisecondsSinceEpoch ~/ 1000;    }
     await productBox.put(newProduct.id, newProduct);
   }
 
@@ -73,8 +71,7 @@ class HiveService {
 
   Future<void> saveExpense(ExpenseModel newExpense) async {
     if (newExpense.id == 0) {
-      newExpense.id = DateTime.now().millisecondsSinceEpoch;
-    }
+      newExpense.id = DateTime.now().millisecondsSinceEpoch ~/ 1000;    }
     await expenseBox.put(newExpense.id, newExpense);
   }
 
@@ -100,12 +97,20 @@ class HiveService {
 
   // --- سایەق و ئیشی سایەق (Driver & Work) ---
 
-  Future<void> saveDriver(Driver driver) async {
+
+
+   Future<void> saveDriver(Driver driver) async {
+
     if (driver.id == 0) {
-      driver.id = DateTime.now().millisecondsSinceEpoch;
+
+      driver.id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
     }
+
     await driverBox.put(driver.id, driver);
+
   }
+
 
   Future<List<Driver>> getAllDrivers() async {
     return driverBox.values.toList();
@@ -113,7 +118,7 @@ class HiveService {
 
   Future<void> saveDriverWork(DriverWork work) async {
     if (work.id == 0) {
-      work.id = DateTime.now().millisecondsSinceEpoch;
+      work.id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     }
     await driverWorkBox.put(work.id, work);
   }
@@ -130,7 +135,7 @@ class HiveService {
 
   Future<void> saveShop(ShopTypeModel shop) async {
     if (shop.id == 0) {
-      shop.id = DateTime.now().millisecondsSinceEpoch;
+      shop.id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     }
     await shopBox.put(shop.id, shop);
   }
@@ -161,7 +166,7 @@ class HiveService {
     if (existingShop.id != -1) {
       shop.id = existingShop.id;
     } else if (shop.id == 0) {
-      shop.id = DateTime.now().millisecondsSinceEpoch;
+      shop.id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     }
     await shopBox.put(shop.id, shop);
   }
@@ -175,7 +180,7 @@ class HiveService {
     if (existingDriver.id != -1) {
       driver.id = existingDriver.id;
     } else if (driver.id == 0) {
-      driver.id = DateTime.now().millisecondsSinceEpoch;
+      driver.id = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     }
     await driverBox.put(driver.id, driver);
   }

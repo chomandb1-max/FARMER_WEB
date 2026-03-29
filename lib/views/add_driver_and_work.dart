@@ -33,6 +33,30 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
     );
   }
   }
+
+   class EnglishNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    String text = newValue.text;
+    
+    // لیستی گۆڕینی ژمارەکان
+    const kurdish = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+    for (int i = 0; i < 10; i++) {
+      text = text.replaceAll(kurdish[i], english[i]);
+      text = text.replaceAll(persian[i], english[i]);
+    }
+
+    return newValue.copyWith(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+  }
+
 class AddDriverAndWorkPage extends StatefulWidget {
   final int farmerId;
   final String farmerCode;
@@ -91,104 +115,80 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
     );
   }
 
-  @override
+    @override
   void initState() {
   super.initState();
   // کاتێک لاپەڕەکە دەکرێتەوە، یەکسەر داتاکان دەهێنین
   Future.delayed(Duration.zero, () => _fetchAndSyncFelahs());
   }
 
-  Future<void> _fetchAndSyncFelahs() async {
-  try {
-    final response = await supabase
-        .from('tb_driver')
-        .select()
-        .eq('id_farmer_user', widget.farmerId);
+    Future<void> _fetchAndSyncFelahs() async {
+    try {
+      final response = await supabase
+          .from('tb_driver')
+          .select()
+          .eq('id_farmer_user', widget.farmerId)
+          .order('d_id_farmer', ascending: false);
+      if (response != null && response is List) {
+        // ١. گرنگترین هەنگاو: سەرەتا سندوقی Hive پاک بکەرەوە بۆ ئەم بەکارهێنەرە
+        // یان هەموو سندوقەکە پاک بکەرەوە ئەگەر تەنها یەک بەکارهێنەر مۆبایلەکە بەکاردێنێت
+        await hiveService.driverBox.clear(); 
 
-    if (response != null && response is List) {
-      List<Driver> tempFelahs = [];
-      
-      for (var item in response) {
-        // گۆڕینی داتاکان بۆ مۆدێلی Driver
-        final driver = Driver(
-          d_id_farmer: item['d_id_farmer'],
-          id_farmer_user: item['id_farmer_user'],
-          d_name_farmer: item['d_name_farmer'],
-          d_phone_farmer: item['d_phone_farmer'],
-          code_farmer: item['code_farmer'],
-          add_date: item['add_date'],
-          is_synced: true,
-        );
-
-        try {
-          // وەک پڕۆدەکتەکە لێرە بانگی دەکەین بۆ سەیڤکردن یان ئەپدەیت
-          await hiveService.saveOrUpdateDriver(driver); 
-        } catch (e) {
-          print("ئاگاداری: کێشە لە سەیڤکردنی لۆکاڵی جوتیار: ${driver.d_id_farmer}");
-        }
+        List<Driver> tempFelahs = [];
         
-        tempFelahs.add(driver);
-      }
+        for (var item in response) {
+          final driver = Driver(
+            d_id_farmer: item['d_id_farmer'],
+            id_farmer_user: item['id_farmer_user'],
+            d_name_farmer: item['d_name_farmer'],
+            d_phone_farmer: item['d_phone_farmer'],
+            code_farmer: item['code_farmer'],
+            add_date: item['add_date'],
+            is_synced: true,
+          );
 
+          // ٢. ئێستا داتاکانی سوپابەیس بخەرە ناو Hive بە پاکی
+          await hiveService.driverBox.add(driver); 
+          
+          tempFelahs.add(driver);
+        }
+
+        setState(() {
+          felahList = tempFelahs; 
+        });
+      }
+    } catch (e) {
+      print("هەڵە لە کاتی Sync: $e");
+      // ٣. ئەگەر ئینتەرنێت نەبوو (Offline)، تەنها ئەوەی ناو Hive پیشان بدە
+      final localDrivers = await hiveService.getDriversForUser(widget.farmerId);
       setState(() {
-        // لێرە لیستی هەموو مۆدێلەکان دادەنێین بۆ ئەوەی دواتر ناو و ئایدی بەکاربێنین
-        felahList = tempFelahs; 
+        felahList = localDrivers;
       });
     }
-  } catch (e) {
-    print("هەڵە لە کاتی Sync: $e");
-    // ئەگەر ئینتەرنێت نەبوو، داتای ناو مۆبایلەکە پیشان بدە
-    final localDrivers = await hiveService.getDriversForUser(widget.farmerId);
-    setState(() {
-      felahList = localDrivers;
-    });
-  }
   }
 
-  // --- ١. پاشەکەوتکردنی جوتیار (Offline + Online) ---
-  
+
   Future<void> _saveFelah() async {
-  if (_nameFelahController.text.isEmpty) return;
-  
-  final newDriver = Driver()
-    ..id_farmer_user = widget.farmerId
-    ..d_name_farmer = _nameFelahController.text
-    ..d_phone_farmer = _phoneFelahController.text
-    ..code_farmer = widget.farmerCode
-    ..add_date = DateTime.now().toIso8601String()
-    ..is_synced = false;
+  if (_nameFelahController.text.isNotEmpty) {
 
-  // ١. یەکەم جار پاشەکەوتکردن لە مۆبایل (ئایدی ناوخۆیی وەردەگرێت)
-  await hiveService.driverBox.put(newDriver.id, newDriver);
-  int localId = newDriver.id;
-  try {
-    // ٢. ناردن بۆ سوپابەیس و وەرگرتنەوەی داتا ڕاستەقینەکە (بە ئایدییەکەیەوە)
-    final response = await supabase.from('tb_driver').insert({
-      'id_farmer_user': widget.farmerId,
-      'd_name_farmer': _nameFelahController.text,
-      'd_phone_farmer': _phoneFelahController.text,
-      'code_farmer': widget.farmerCode,
-    }).select().single(); // بەکارهێنانی .single() زۆر گرنگە بۆ گەڕانەوەی ئایدییەکە
-    
-    if (response != null) {
-      // ٣. نوێکردنەوەی هەمان ئەو دانەیەی کە ئێستا لە مۆبایل سەیڤمان کرد
-      newDriver.id = localId; // ئایدییە ناوخۆییەکە
-      newDriver.d_id_farmer = response['d_id_farmer']; // ئایدییە ڕاستەقینەکەی سێرڤەر
-      newDriver.is_synced = true;
-      
-      await hiveService.driverBox.put(localId ,newDriver); // نوێکردنەوە نەک زۆرکردن
-      _showSnackBar("جوتیار تۆمار کرا", Colors.green);
-    }
-  } catch (e) {
-    _showSnackBar("لە مۆبایل پاشەکەوت بوو (Offline)", Colors.orange);
+      final newDriver = Driver(
+        id_farmer_user: widget.farmerId,
+        d_name_farmer: _nameFelahController.text,
+        d_phone_farmer: _phoneFelahController.text,
+        code_farmer: widget.farmerCode,
+        add_date: DateTime.now().toIso8601String(),
+        is_synced: false
+      );
+
+       await supabase.from('tb_driver').insert(newDriver.toMap());
+      await _fetchAndSyncFelahs();
+      _nameFelahController.clear();
+      _phoneFelahController.clear();
+       _showSnackBar("جوتیار بە سەرکەوتوویی تۆمار کرا", Colors.green);
+      setState(() {}); // نوێکردنەوەی شاشەکە
+  } else {
+    _showSnackBar("هەڵە:دڵنیابە لە هەبوونی ئینتەرنێت.", Colors.red);
   }
-
-  // ٤. نوێکردنەوەی لیستەکە بەبێ دووبارەبوونەوە
-  await _fetchAndSyncFelahs();
-
-  _nameFelahController.clear();
-  _phoneFelahController.clear();
-  setState(() {});
   }
 
 
@@ -261,90 +261,92 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
   showDialog(
     context: context,
     builder: (context) => StatefulBuilder(
-      builder: (context, setDialogState) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("لیستی جوتیارەکان", textAlign: TextAlign.center),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: felahList.isEmpty 
-              ? const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [Center(child: Text("هیچ جوتیارێک نییە"))],
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: felahList.length,
-                  itemBuilder: (context, index) {
-                    final f = felahList[index];
-                    return Card(
-                      child: ListTile(
-                        title: Text(f.d_name_farmer ?? "بێ ناو", style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(f.d_phone_farmer ?? ""),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_forever, color: Colors.red),
-                          onPressed: () {
-  // پیشاندانی دیالۆگی دڵنیایی پێش سڕینەوە
-                                showDialog(
-                                 context: context,
-                                builder: (BuildContext context) {
-                                               return Directionality(
-                                    textDirection: TextDirection.rtl, // بۆ ئەوەی کوردییەکە ڕێک بێت
-                                   child: AlertDialog(
-                                        title: const Text("دڵنیای؟"),
-                                   content: Text("ئایا دڵنیای لە سڕینەوەی جوتیار: ${f.d_name_farmer}؟"),
-                                        actions: [
-                                       TextButton(
-                                  onPressed: () => Navigator.pop(context), // پاشگەزبوونەوە
-                                       child: const Text("نەخێر", style: TextStyle(color: Colors.grey)),
-                                         ),
-                               TextButton(
-                                   onPressed: () async {
-                                Navigator.pop(context); // داخستنی دیالۆگەکە و دەستپێکردنی سڕینەوە
-                
-                               try {
-                            // ١. سڕینەوە لە سوپابەیس
-                                   if(f.d_id_farmer != null) {
-                               await supabase.from('tb_driver').delete().eq('d_id_farmer', f.d_id_farmer!);
-                              }
-                   
-                            // ٢. سڕینەوە لە ئۆبجێکت بۆکس
-                           await hiveService.deleteLocalDriverWork(f.id);
-                   
-                          // ٣. نوێکردنەوەی لیستەکان
-                            await _fetchAndSyncFelahs();
-                  
-                            // ئەگەر لە ناو دیالۆگێکی تردایت، ئەمە بۆ نوێکردنەوەی شاشەکەیە
-                                 setDialogState(() {}); 
-                            _showSnackBar("بە سەرکەوتوویی سڕایەوە", Colors.green);
-                           } catch (e) {
-                         _showSnackBar("هەڵە لە سڕینەوە: $e", Colors.red);
-                         }
-                       },
-                        child: const Text("بەڵێ، بسڕەوە", style: TextStyle(color: Colors.red)),
-                       ),
-                       ],
-                    ),
-                       );
-                         },
-                       );
-                         },
+      builder: (context, setDialogState) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text("لیستی جوتیارەکان", textAlign: TextAlign.center),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: felahList.isEmpty
+                ? const Center(child: Text("هیچ جوتیارێک نییە"))
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: felahList.length,
+                    itemBuilder: (context, index) {
+                      final f = felahList[index];
+                      return Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.person, color: Color.fromARGB(255, 6, 68, 154)), // یان هەر ڕەنگێکی تر کە پێت جوانە
+                          title: Text(f.d_name_farmer ?? "بێ ناو", 
+                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(f.d_phone_farmer ?? ""),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_forever, color: Colors.red),
+                            onPressed: () async {
+                              // ١. چاوەڕێ دەکەین تا سڕینەوەکە تەواو دەبێت
+                              await _confirmDelete(f);
+                              // ٢. دوای سڕینەوە، لیستەکە لە ناو ئەم دیالۆگە نوێ دەکەینەوە
+                              setDialogState(() {});
+                            },
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("داخستن"),
+            )
+          ],
         ),
+      ),
+    ),
+  );
+}
+
+// لێرە StateSetter مان لاداوە چونکە لە ناوەوە پێویستمان نییە
+Future<void> _confirmDelete(Driver f) async {
+  return showDialog(
+    context: context,
+    builder: (context) => Directionality(
+      textDirection: TextDirection.rtl,
+      child: AlertDialog(
+        title: const Text("دڵنیای؟"),
+        content: Text("ئایا دڵنیای لە سڕینەوەی جوتیار: ${f.d_name_farmer}؟"),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: const Text("داخستن")
-          )
+            onPressed: () => Navigator.pop(context),
+            child: const Text("نەخێر", style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                if (f.d_id_farmer != null) {
+                  await supabase.from('tb_driver').delete().eq('d_id_farmer', f.d_id_farmer!);
+                }
+                // لێرە بەپێی ئایدی Hive ڕەشی دەکەینەوە
+                await hiveService.driverBox.delete(f.id); 
+                await _fetchAndSyncFelahs(); // نوێکردنەوەی داتاکان لە ناو میمۆری
+                
+                Navigator.pop(context); // داخستنی دیالۆگی "دڵنیای"
+                _showSnackBar("بە سەرکەوتوویی سڕایەوە", Colors.green);
+                
+                setState(() {}); // نوێکردنەوەی شاشەی سەرەکی (درۆپداون)
+              } catch (e) {
+                Navigator.pop(context);
+                _showSnackBar("هەڵە لە سڕینەوە", Colors.red);
+              }
+            },
+            child: const Text("بەڵێ، بسڕەوە", style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     ),
   );
   }
-
 
   void _clearWorkFields() {
     _workTypeController.clear();
@@ -376,7 +378,7 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
                 children: [
                   _textField(_partnerNameController, "ناوی سایەق", Icons.person_add),
                   const SizedBox(height: 8),
-                  _textField(_partnerPhoneController, "ژمارەی مۆبایل", Icons.phone, isNumber: true),
+                  _textField3(_partnerPhoneController, "ژمارەی مۆبایل", Icons.phone, isNumber: true),
                   const SizedBox(height: 15),
                   const Divider(),
                   const Text("سایەقی زیاد کراو", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
@@ -764,25 +766,41 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
         contentPadding: EdgeInsets.all(6),
       ),
     ),
+
+    dropdownBuilder: (context, dynamic selectedItem) {       
+    return Directionality(
+    textDirection: TextDirection.rtl,
+    child: Row(
+      children: [
+        // ١. نوسینەکە یەکەم دانە بێت بۆ ئەوەی لای ڕاست بگرێت
+        Expanded(
+          child: Text(
+            selectedItem?.d_name_farmer ?? "",
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 18, 
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 10), // بۆشایی
+
+        // ٢. ئایکۆنەکە لە دوای نوسینەکە بێت، دەکەوێتە لای چەپ (لە RTL)
+        const Icon(Icons.person, color: Color.fromARGB(255, 6, 68, 154)),
+      ],
+    ),
+  );
+  },
        
-       // ئەم بەشە زیاد بکە بۆ ناو DropdownSearch
-        dropdownBuilder: (context, dynamic selectedItem) {       
-        return Text(
-        textDirection: TextDirection.rtl,
-        selectedItem?.d_name_farmer ?? "",
-       style: const TextStyle(
-         fontSize: 18, // لێرە فۆنتەکەی گەورە بکە
-        fontWeight: FontWeight.bold,
-        color: Colors.black,
-       ),
-     );
-     },
     // ڕێکخستنی ئەو لیستەی دەکرێتەوە (سێرچەکە لێرەدایە)
     popupProps: PopupProps.menu(
       showSearchBox: true, // سێرچەکە لێرە چالاک دەبێت
       searchFieldProps: TextFieldProps(
         textDirection: TextDirection.rtl, // بۆ ئەوەی سێرچەکە بە کوردی بێت
         decoration: InputDecoration(
+         suffixIcon: const Icon(Icons.person, color: Color.fromARGB(255, 6, 68, 154)),
           hintText: "گەڕان بە ناو...",
           prefixIcon: Icon(Icons.search),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
@@ -1008,8 +1026,8 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
     return TextField(
       controller: controller,
       textAlign: TextAlign.right,
-      keyboardType: isNumber ? TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
-      inputFormatters: isNumber ? [ThousandsSeparatorInputFormatter()] : [],
+      keyboardType: isNumber ? TextInputType.numberWithOptions(decimal: true , signed: false) : TextInputType.text,
+      inputFormatters: isNumber ? [ThousandsSeparatorInputFormatter() , EnglishNumberFormatter() ] : [],
       style: TextStyle(fontSize: 15),
       decoration: InputDecoration(
         hintText: hint,
@@ -1027,8 +1045,8 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
     return TextField(
       controller: controller,
       textAlign: TextAlign.right,
-      keyboardType: isNumber ? TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
-      inputFormatters: isNumber ? [ThousandsSeparatorInputFormatter()] : [],
+      keyboardType: isNumber ? TextInputType.numberWithOptions(decimal: true , signed: false) : TextInputType.text,
+      inputFormatters: isNumber ? [ThousandsSeparatorInputFormatter() , EnglishNumberFormatter() ] : [],
       style: TextStyle(fontSize: 12),
       decoration: InputDecoration(
         hintText: hint,
@@ -1046,8 +1064,9 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
     return TextField(
       controller: controller,
       textAlign: TextAlign.right,
-      keyboardType: isNumber ? TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+      keyboardType: isNumber ? TextInputType.numberWithOptions(decimal: true , signed: false) : TextInputType.text,
       style: TextStyle(fontSize: 15),
+      inputFormatters: isNumber ? [ EnglishNumberFormatter() ] : [],
       decoration: InputDecoration(
         hintText: hint,
         suffixIcon: Icon(icon, color: Colors.green, size: 20),

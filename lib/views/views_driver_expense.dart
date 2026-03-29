@@ -21,6 +21,29 @@ class DriverExpensePage extends StatefulWidget {
   State<DriverExpensePage> createState() => _DriverExpensePageState();
 }
 
+class EnglishNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    String text = newValue.text;
+    
+    // لیستی گۆڕینی ژمارەکان
+    const kurdish = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
+    for (int i = 0; i < 10; i++) {
+      text = text.replaceAll(kurdish[i], english[i]);
+      text = text.replaceAll(persian[i], english[i]);
+    }
+
+    return newValue.copyWith(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+  }
+
 class ThousandsSeparatorInputFormatter extends TextInputFormatter {
   static final intl.NumberFormat _formatter = intl.NumberFormat('#,###');
 
@@ -552,10 +575,10 @@ class _DriverExpensePageState extends State<DriverExpensePage> {
   return TextField(
     controller: ctrl,
     textAlign: TextAlign.right,
-    keyboardType: isNum ? TextInputType.number : TextInputType.text,
     // لێرەدا fontSize و textColor مان دانا بۆ ئەوەی داینامیکی بێت
     style: TextStyle(fontSize: 15, color: textColor, fontWeight: FontWeight.w500),
-    inputFormatters: isNum ? [ThousandsSeparatorInputFormatter()] : [],
+     keyboardType: isNum ? TextInputType.numberWithOptions(decimal: true , signed: false) : TextInputType.text,
+    inputFormatters: isNum ? [ThousandsSeparatorInputFormatter() , EnglishNumberFormatter() ] : [],
     decoration: InputDecoration(
       prefixIcon: Icon(icon, color: const Color(0xFF144D45), size: 22),
       hintText: hint,
