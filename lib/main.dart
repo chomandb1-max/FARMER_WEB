@@ -526,7 +526,6 @@ class HomePage extends StatelessWidget {
           List<String> previousCodes = prefs.getStringList('all_saved_codes') ?? [];
           
           // پرینت بۆ ئەوەی بزانیت لە میمۆریدا چی هەیە ئیستا
-          print("کۆدەکان لە میمۆریدا: $previousCodes");
 
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -599,8 +598,6 @@ class HomePage extends StatelessWidget {
                        previousCodes = currentList; 
                        });
                       // ۲. لێرە پرینت دەکەین بۆ دڵنیایی
-                      print("کۆدی نوێ زیادکرا: $inputCode");
-                      print("لیستەکە ئیستا: ${prefs.getStringList('all_saved_codes')}");
                     }
 
                     await prefs.setInt('farmer_id', response['id_farmer']);

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/farmer_product_model.dart';
 import '../models/expense_model.dart';
@@ -36,7 +37,7 @@ class SupabaseService {
           .single();
       return response;
     } catch (e) {
-      print("هەڵە لە تۆمارکردنی خەرجی: $e");
+      debugPrint("هەڵە لە تۆمارکردنی خەرجی: $e");
       return null;
     }
   }
@@ -65,7 +66,7 @@ class SupabaseService {
       if (response == null) return false;
       return response['is_used'] == false;
     } catch (e) {
-      print("هەڵە لە پشکنینی کۆد: $e");
+      debugPrint("هەڵە لە پشکنینی کۆد: $e");
       return false;
     }
   }
@@ -81,7 +82,7 @@ class SupabaseService {
       
       return response; 
     } catch (e) {
-      print("هەڵە لە دۆزینەوەی پڕۆفایل: $e");
+      debugPrint("هەڵە لە دۆزینەوەی پڕۆفایل: $e");
       return null;
     }
   }
@@ -109,7 +110,7 @@ class SupabaseService {
 
       return newUser;
     } catch (e) {
-      print("هەڵە لە پڕۆسەی ئەکتیڤکردن: $e");
+      debugPrint("هەڵە لە پڕۆسەی ئەکتیڤکردن: $e");
       return null;
     }
   }
@@ -124,7 +125,7 @@ class SupabaseService {
           .single();
       return response;
     } catch (e) {
-      print("هەڵە لە تۆمارکردنی سایەق: $e");
+      debugPrint("هەڵە لە تۆمارکردنی سایەق: $e");
       return null;
     }
   }
@@ -139,7 +140,7 @@ class SupabaseService {
           .single();
       return response;
     } catch (e) {
-      print("هەڵە لە تۆمارکردنی ئیش: $e");
+      debugPrint("هەڵە لە تۆمارکردنی ئیش: $e");
       return null;
     }
   }
@@ -151,7 +152,7 @@ class SupabaseService {
     try {
       await _supabase.from('tb_driver_work').delete().eq('id_work', idWork);
     } catch (e) {
-      print("هەڵە لە سڕینەوەی ئیش: $e");
+      debugPrint("هەڵە لە سڕینەوەی ئیش: $e");
     }
   }
 }
