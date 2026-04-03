@@ -1,21 +1,95 @@
 import 'package:flutter/material.dart';
 import 'package:farmer_app/main.dart';
-
-class HelpPage extends StatelessWidget {
+import 'package:farmer_app/views/admin_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+  class HelpPage extends StatefulWidget {
   const HelpPage({super.key});
+
+  @override
+  State<HelpPage> createState() => _HelpPageState();
+}
+
+class _HelpPageState extends State<HelpPage> {
+  int _clickCount = 0; // بۆ ژماردنی کلیکەکان
+
+  // فەنکشنی پشکنینی لۆگین
+  void _showAdminLogin() {
+    final TextEditingController userController = TextEditingController();
+    final TextEditingController passController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text("چوونەژوورەوەی ئەدمین"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: userController,
+                decoration: const InputDecoration(labelText: "ناوی بەکارهێنەر"),
+              ),
+              TextField(
+                controller: passController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: "وشەی تێپەڕ"),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("داخستن"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // لێرە یوزەر و پاسۆردە نهێنییەکەی خۆت دابنێ
+                if (userController.text == "admin" && passController.text == "1234") {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('is_admin_logged_in', true);
+                  if (!context.mounted) return; // دڵنیابوونەوە لەوەی پەیجەکە هێشتا ماوە
+                  Navigator.pop(context); // داخستنی دیالۆگەکە
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AdminControlPage()),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("زانیارییەکان هەڵەن!")),
+                  );
+                }
+              },
+              child: const Text("چوونەژوورەوە"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Directionality(
-      textDirection: TextDirection.rtl, // بۆ ئەوەی ڕاستەوخۆ بۆ کوردی ڕێک بێت
+      textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          title: const Text("  ڕێنماییەکان  ", style: TextStyle(fontWeight: FontWeight.bold)),
+          title: GestureDetector(
+            onTap: () {
+              _clickCount++;
+              if (_clickCount >= 5) {
+                _clickCount = 0; // سفرکردنەوەی ژمارەکە
+                _showAdminLogin(); // پیشاندانی لۆگین
+              }
+            },
+            child: const Text("  ڕێنماییەکان  ", style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
           centerTitle: true,
           backgroundColor: const Color(0xFF144D45),
           foregroundColor: Colors.white,
-            ),
+        ),
+
            body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -73,7 +147,7 @@ class HelpPage extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.phone, color: Color(0xFF144D45)),
                 title: const Text("0750 178 3028", textDirection: TextDirection.ltr),
-                subtitle: const Text("بۆ پەیوەندی\nWhatsApp / Viber", style: TextStyle(fontSize: 20,fontWeight: FontWeight.bold , color: Color.fromARGB(135, 5, 193, 48))),
+                subtitle: const Text("WhatsApp / Viber / FastPay", style: TextStyle(fontSize: 20,fontWeight: FontWeight.bold , color: Color.fromARGB(135, 5, 193, 48))),
                 onTap: () {
                   //لێرە دەتوانیت فەنکشنی تەلەفۆن کردن دابنێیت
                 },
@@ -89,7 +163,7 @@ class HelpPage extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.phone, color: Color(0xFF144D45)),
                 title: const Text("0772 152 5711", textDirection: TextDirection.ltr),
-                subtitle: const Text("FIB", style: TextStyle(fontSize: 20, color: Color.fromARGB(137, 48, 247, 61))),
+                subtitle: const Text("FIB / SuperQi", style: TextStyle(fontSize: 20, color: Color.fromARGB(137, 48, 247, 61))),
                 onTap: () {
                   //لێرە دەتوانیت فەنکشنی تەلەفۆن کردن دابنێیت
                 },
@@ -136,7 +210,32 @@ class HelpPage extends StatelessWidget {
             ),
             ),
             ), 
-                     const SizedBox(height: 30),
+                     const SizedBox(height: 20),
+
+            // نوسینێک بۆ ڕێنمایی بەکارهێنەر
+            const Center(
+              child: Text(
+                "کۆدی سکانکردن بۆ ناردنی پارە",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF144D45),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // لێرەوە QR Code-ەکان دەست پێ دەکەن
+            _buildQRCard("assets/images/fib_qr.png", "FIB QR Code"),
+            const SizedBox(height: 15),
+            
+            _buildQRCard("assets/images/fastpay_qr.png", "FastPay QR Code"),
+            const SizedBox(height: 15),
+            
+            _buildQRCard("assets/images/qi_qr.png", "Qi Card QR Code"),
+            
+            const SizedBox(height: 40), // بۆشایی کۆتایی لاپەڕە
 
            Divider(thickness: 1, color: Colors.grey.shade400),
          ],
@@ -146,7 +245,35 @@ class HelpPage extends StatelessWidget {
     );
   }
   
-
+  Widget _buildQRCard(String imagePath, String title) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: Padding(
+        padding: const EdgeInsets.all(15.0),
+        child: Column(
+          children: [
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.asset(
+                imagePath,
+                width: 280, // قەبارەکەی لێرە گەورە کراوە
+                height: 280,
+                fit: BoxFit.contain,
+                // ئەگەر وێنەکە نەبوو، ئەم نوسینە نیشان دەدات
+                errorBuilder: (context, error, stackTrace) => const Text("وێنەکە نەدۆزرایەوە"),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    }
 
   // میتۆد بۆ دروستکردنی سەردێڕی بەشەکان
   Widget _buildHeaderCard(String title, IconData icon, Color color) {

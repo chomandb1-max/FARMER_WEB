@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <title>فەلاحی زیرەک - Smart Farmer</title>
+  <meta name="title" content="فەلاحی زیرەک - بەڕێوەبردنی کڕینی مەواد و ئیشی جوتیار">
+  <meta name="description" content="ئەپی فەلاحی زیرەک بۆ هاوکاری جوتیار و خاوەن مەکینە لە ڕێکخستنی خەرجی و داهاتەکانیان بە زمانی کوردی.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="فەلاحی زیرەک">
+  <meta property="og:description" content="باشترین ئەپ بۆ خاوەن مەکینە  و حساباتی جوتیاری.">
+  <meta property="og:image" content="assets/icons/icons-512.png">
+
+
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <title>فەلاحی زیرەک</title>
@@ -20,24 +30,34 @@
 <body>
   <div id="loading-indicator">
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh;">
-      <img src="icons/icons-192.png" style="width: 120px; margin-bottom: 20px;">
+      <img src="icons/icons-512.png" style="width: 120px; margin-bottom: 20px;">
       <div style="color: white; font-family: sans-serif; font-weight: bold;">چاوەڕوان بە...</div>
     </div>
   </div>
 
   <script src="flutter.js" defer></script>
-  
   <script>
     window.addEventListener('load', function(ev) {
-      // لێرەدا تەنها ڕێگە دەدەین فلاتەر بە ئاسایی لۆد بێت
+      // لێرە پشکنین دەکەین بۆ ئەوەی شاشەی سپی دروست نەبێت
       _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          serviceWorkerVersion: {{flutter_service_worker_version}},
+        },
         onEntrypointLoaded: function(engineInitializer) {
           engineInitializer.initializeEngine().then(function(appRunner) {
-            appRunner.runApp();
+            appRunner.runApp().then(function() {
+              // کاتێک ئەپەکە بە تەواوی لۆد بوو، لۆدینگەکە لادەبەین
+              var loadingIndicator = document.getElementById('loading-indicator');
+              if (loadingIndicator) {
+                loadingIndicator.remove();
+              }
+            });
           });
         }
       });
     });
   </script>
 </body>
+
+
 </html>

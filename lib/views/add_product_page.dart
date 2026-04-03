@@ -528,7 +528,11 @@ Widget build(BuildContext context) {
                   child: InkWell(
                     onTap: () async {
                       final prefs = await SharedPreferences.getInstance();
-                      await prefs.clear();
+                      await prefs.remove('last_page');
+                      await prefs.remove('farmer_id');
+                      await prefs.remove('farmer_name');
+                      await prefs.remove('farmer_code');
+
                       if (context.mounted) {
                         Navigator.pushAndRemoveUntil(
                           context,

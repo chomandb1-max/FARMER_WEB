@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart' as path_provider;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter/foundation.dart'; // ئەمە زیاد بکە بۆ ناسینەوەی وێب
 import 'package:flutter/services.dart'; // بۆ SystemNavigator پێویستە
-
+import 'package:farmer_app/views/admin_page.dart';
 
 const kBgLight = Color(0xFFDCE6DF); 
 const kPrimaryGreen = Color(0xFF0A2E29); 
@@ -21,8 +21,9 @@ bool isNum = true;
 late HiveService hiveService;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  hiveService = await HiveService.create();
 
+  await Hive.initFlutter();
+  hiveService = await HiveService.create();
 
   await Supabase.initialize(
     url: 'https://fljchnkqhaopmlexsuru.supabase.co',
@@ -31,11 +32,17 @@ void main() async {
 
   // لێرە پشکنین دەکەین بزانین پێشتر لۆگین کراوە یان نا
   final prefs = await SharedPreferences.getInstance();
+
+  final bool isAdminLoggedIn = prefs.getBool('is_admin_logged_in') ?? false;
+  Widget startPage;
+  if (isAdminLoggedIn) {
+    startPage = const AdminControlPage();
+  } else {
+
   final int? savedId = prefs.getInt('farmer_id');
   final String? savedCode = prefs.getString('farmer_code');
   final String? savedJob = prefs.getString('job_title');
   final String? savedName = prefs.getString('farmer_name');
-  Widget startPage;
   
   if (savedId != null && savedCode != null && savedJob != null) {
     // ئەگەر زانیاری هەبوو، یەکسەر دەچێتە لاپەڕەی مەبەست
@@ -48,7 +55,7 @@ void main() async {
     // ئەگەر یەکەم جاری بێت، دەچێتە هۆم
     startPage = const HomePage();
   }
-
+  }
   runApp(MyApp(startWidget: startPage));
 }
 
@@ -89,6 +96,36 @@ class applink {
     }
   }
 }
+
+
+class CodeInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    
+    // ۱. تەنها پیت و ژمارەکان وەربگرە (هێڵە کۆنەکان لادەبات بۆ ئەوەی دووبارە ڕێکیان بخاتەوە)
+    String text = newValue.text.replaceAll('-', '').toUpperCase();
+
+    // ۲. ڕێگری بکە لەوەی لە ۱۲ نووسە زیاتر بێت
+    if (text.length > 12) text = text.substring(0, 12);
+
+    String formatted = "";
+    for (int i = 0; i < text.length; i++) {
+      formatted += text[i];
+      // ۳. دوای هەر ٤ نووسەیەک هێڵێک زیاد بکە (جگە لە کۆتاییەکە)
+      if ((i + 1) % 4 == 0 && (i + 1) != text.length && (i + 1) < 12) {
+        formatted += "-";
+      }
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+
 class EnglishNumberFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -111,6 +148,7 @@ class EnglishNumberFormatter extends TextInputFormatter {
     );
   }
   }
+
 
 // لە ناو initState بانگی بکە
 
@@ -371,125 +409,252 @@ class HomePage extends StatelessWidget {
 
   void _showCodeInputDialog(BuildContext context, String jobTitle) {
     final TextEditingController codeController = TextEditingController();
-    showDialog(context: context, builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text("کۆدی $jobTitle", textAlign: TextAlign.right),
-      content: TextField(controller: codeController, textAlign: TextAlign.center, decoration: const InputDecoration(hintText: "کۆدەکە لێرە بنووسە")),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("گەڕانەوە")),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: kPrimaryGreen),
-          onPressed: () async {
-            final String inputCode = codeController.text.trim();
-            if (inputCode.isEmpty) return;
-            final codeResponse = await Supabase.instance.client.from('tb_codes').select().eq('code_value', inputCode).maybeSingle();
-            if (codeResponse != null) {
-              if (codeResponse['is_used'] == true) {
-                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("ئەم کۆدە پێشتر بەکارهاتووە")));
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("کۆدی $jobTitle", textAlign: TextAlign.right),
+        content: TextField(
+          controller: codeController,
+          textAlign: TextAlign.center,
+          textCapitalization: TextCapitalization.characters,
+          decoration: const InputDecoration(hintText: "XXXX-XXXX-XXXX" , border: OutlineInputBorder(),),
+          inputFormatters: [CodeInputFormatter(),LengthLimitingTextInputFormatter(14),],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("گەڕانەوە")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: kPrimaryGreen),
+            onPressed: () async {
+              final String inputCode = codeController.text.trim();
+              if (inputCode.isEmpty) return;
+              final codeResponse = await Supabase.instance.client
+                  .from('tb_codes')
+                  .select()
+                  .eq('code_value', inputCode)
+                  .maybeSingle();
+
+              if (codeResponse != null) {
+                if (codeResponse['is_used'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("ئەم کۆدە پێشتر بەکارهاتووە")),
+                  );
+                } else {
+                  Navigator.pop(context);
+                  _showCreateProfileDialog(context, inputCode, jobTitle);
+                }
               } else {
-                Navigator.pop(context);
-                _showCreateProfileDialog(context, inputCode, jobTitle);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("کۆدەکە بوونی نییە")),
+                );
               }
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("کۆدەکە بوونی نییە")));
-            }
-          },
-          child: const Text("پشکنین", style: TextStyle(color: Colors.white)),
-        )
-      ],
-    ));
+            },
+            child: const Text("پشکنین", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
-  
-  
 
   void _showCreateProfileDialog(BuildContext context, String code, String job) {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
-    showDialog(context: context, barrierDismissible: false, builder: (context) => AlertDialog(
-      title: const Text("تەواوکردنی زانیارییەکان", textAlign: TextAlign.right),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(controller: nameController, textAlign: TextAlign.right,
-           decoration: const InputDecoration(labelText: "ناو دوانی(نازناو)")),
-          TextField(controller: phoneController, textAlign: TextAlign.right, 
-          decoration: const InputDecoration(labelText: "ژمارە مۆبایل"),
-          inputFormatters: isNum ? [ EnglishNumberFormatter()] : [],
-           keyboardType: TextInputType.phone),
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text("تەواوکردنی زانیارییەکان", textAlign: TextAlign.right),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              textAlign: TextAlign.right,
+              decoration: const InputDecoration(labelText: "ناو دوانی(نازناو)"),
+            ),
+            TextField(
+              controller: phoneController,
+              textAlign: TextAlign.right,
+              decoration: const InputDecoration(labelText: "ژمارە مۆبایل"),
+              inputFormatters: isNum ? [EnglishNumberFormatter()] : [],
+              keyboardType: TextInputType.phone,
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: kPrimaryGreen),
+            onPressed: () async {
+              if (nameController.text.isEmpty || phoneController.text.isEmpty) return;
+
+              // ۱. پاشەکەوتکردنی کۆدەکە لە لیستەکەدا بۆ جاری داهاتوو
+              final prefs = await SharedPreferences.getInstance();
+              List<String> currentCodes = prefs.getStringList('all_saved_codes') ?? [];
+              if (!currentCodes.contains(code)) {
+                currentCodes.add(code);
+                await prefs.setStringList('all_saved_codes', currentCodes);
+              }
+
+              // ۲. ناردنی زانیارییەکان بۆ داتابەیس
+              final response = await Supabase.instance.client.from('tb_farmer').insert({
+                'code_farmer': code,
+                'name_farmer': nameController.text,
+                'phone_farmer': phoneController.text,
+                'job_title': job,
+                'create_date': DateTime.now().toIso8601String(),
+                'expiry_date': DateTime.now().add(const Duration(days: 365)).toIso8601String(),
+              }).select().single();
+
+              await Supabase.instance.client.from('tb_codes').update({'is_used': true}).eq('code_value', code);
+
+              if (context.mounted) {
+                // ۳. پاشەکەوتکردنی زانیارییەکان بۆ ئەوەی ئەپەکە بزانێت کێ چۆتە ژوورەوە
+                await prefs.setInt('farmer_id', response['id_farmer']);
+                await prefs.setString('farmer_code', code);
+                await prefs.setString('job_title', job);
+                await prefs.setString('farmer_name', response['name_farmer']);
+
+                Navigator.pop(context);
+
+                if (job == "سایەق مەکینە") {
+                  Navigator.pushReplacement(context, 
+                  MaterialPageRoute(builder: (context) => AddDriverAndWorkPage(farmerId: response['id_farmer'], 
+                  farmerName: response['name_farmer'], farmerCode: code)));
+                } else {
+                  Navigator.pushReplacement(context,
+                   MaterialPageRoute(builder: (context) => AddFarmerDataPage(farmerId: response['id_farmer'],
+                    farmerName: response['name_farmer'], farmerCode: code)));
+                }
+              }
+            },
+            child: const Text("تۆمارکردن", style: TextStyle(color: Colors.white)),
+          )
         ],
       ),
-      actions: [
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: kPrimaryGreen),
-          onPressed: () async {
-            if (nameController.text.isEmpty || phoneController.text.isEmpty) return;
-            final response = await Supabase.instance.client.from('tb_farmer').insert({
-              'code_farmer': code,
-              'name_farmer': nameController.text,
-              'phone_farmer': phoneController.text,
-              'job_title': job,
-              'create_date': DateTime.now().toIso8601String(),
-              'expiry_date': DateTime.now().add(const Duration(days: 365)).toIso8601String(),
-            }).select().single();
-            await Supabase.instance.client.from('tb_codes').update({'is_used': true}).eq('code_value', code);
-            
-            if (context.mounted) {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setInt('farmer_id', response['id_farmer']);
-              await prefs.setString('farmer_code', code);
-              await prefs.setString('job_title', job);
-              await prefs.setString('farmer_name', response['name_farmer']);
+    );
+    }
 
-              Navigator.pop(context);
-              
-              if (job == "سایەق مەکینە") {
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AddDriverAndWorkPage(farmerId: response['id_farmer'], farmerName: response['name_farmer'], farmerCode: code)));
-              } else {
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AddFarmerDataPage(farmerId: response['id_farmer'], farmerName: response['name_farmer'], farmerCode: code)));
-              }
-            }
-          },
-          child: const Text("تۆمارکردن", style: TextStyle(color: Colors.white)),
-        )
-      ],
-    ));
+  
+  void _showLoginDialog(BuildContext context) async {
+  final TextEditingController controller = TextEditingController();
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+  if (context.mounted) {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          // --- لێرە لیستەکە دەخوێنینەوە ---
+          List<String> previousCodes = prefs.getStringList('all_saved_codes') ?? [];
+          
+          // پرینت بۆ ئەوەی بزانیت لە میمۆریدا چی هەیە ئیستا
+          print("کۆدەکان لە میمۆریدا: $previousCodes");
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text("کۆدەکەت بنووسە", textAlign: TextAlign.right),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  textAlign: TextAlign.center,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(hintText: "XXXX-XXXX-XXXX" , border: OutlineInputBorder(),),
+                  inputFormatters: [CodeInputFormatter(),LengthLimitingTextInputFormatter(14),],
+                ),
+                if (previousCodes.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text("کۆدی بەکار هاتوو", style: TextStyle(fontSize: 8, color: Colors.grey)),
+                  const SizedBox(height: 5),
+      
+                  Wrap(
+                      alignment: WrapAlignment.center,
+                 spacing: 8,
+                   runSpacing: 4, // بۆ ئەوەی نێوان دێڕەکانیش کەمێک دوور بن
+
+                 children: previousCodes.map((savedCode) => InputChip(
+                    label: Text(savedCode, style: TextStyle(color: kPrimaryGreen, fontSize: 10)),
+                        backgroundColor: kPrimaryGreen.withValues(alpha: 0.1),
+                shape: StadiumBorder(side: BorderSide(color: kPrimaryGreen.withValues(alpha: 0.2))),
+               showCheckmark: false, // 👈 ئەمە زیاد بکە بۆ ئەوەی شوێن بۆ ئایکۆنی سڕینەوە بێت
+               isEnabled: true,  
+                    onPressed: () {
+                 setDialogState(() {
+                controller.text = savedCode;
+                  });
+                },
+              // ئایکۆنی سڕینەوە
+              deleteIcon: const Icon(Icons.cancel, size: 14, color: Colors.redAccent),
+            onDeleted: () async {
+                 final prefs = await SharedPreferences.getInstance();
+                 setDialogState(() {
+                    previousCodes.remove(savedCode);
+                  });
+                 await prefs.setStringList('all_saved_codes', previousCodes);
+                     },
+                         )).toList(),
+                        ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("داخستن")),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: kPrimaryGreen),
+                onPressed: () async {
+                  final String inputCode = controller.text.trim();
+                  if (inputCode.isEmpty) return;
+
+                  final response = await Supabase.instance.client
+                      .from('tb_farmer')
+                      .select().eq('code_farmer', inputCode).maybeSingle();
+
+                  if (response != null && context.mounted) {
+                    // --- فێڵە گرنگەکە لێرەیە ---
+                    List<String> currentList = prefs.getStringList('all_saved_codes') ?? [];
+                    if (!currentList.contains(inputCode)) {
+                      currentList.add(inputCode);
+                      // ۱. لێرە سەیڤی دەکەین
+                      await prefs.setStringList('all_saved_codes', currentList);
+                      setDialogState(() {
+                       previousCodes = currentList; 
+                       });
+                      // ۲. لێرە پرینت دەکەین بۆ دڵنیایی
+                      print("کۆدی نوێ زیادکرا: $inputCode");
+                      print("لیستەکە ئیستا: ${prefs.getStringList('all_saved_codes')}");
+                    }
+
+                    await prefs.setInt('farmer_id', response['id_farmer']);
+                    await prefs.setString('farmer_code', inputCode);
+                    await prefs.setString('job_title', response['job_title']);
+                    await prefs.setString('farmer_name', response['name_farmer']);
+
+                    Navigator.pop(context);
+
+                    // گواستنەوە بۆ لاپەڕەی مەبەست
+                    Widget targetPage = (response['job_title'] == "سایەق مەکینە")
+                        ? AddDriverAndWorkPage(farmerId: response['id_farmer'], farmerName: response['name_farmer'], farmerCode: inputCode)
+                        : AddFarmerDataPage(farmerId: response['id_farmer'], farmerName: response['name_farmer'], farmerCode: inputCode);
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => targetPage));
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("پڕۆفایل نەدۆزرایەوە")));
+                  }
+                },
+                child: const Text("گەڕان", style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
   }
 
-  void _showLoginDialog(BuildContext context) {
-    final TextEditingController controller = TextEditingController();
-    showDialog(context: context, builder: (context) => AlertDialog(
-      title: const Text("کۆدەکەت بنووسە", textAlign: TextAlign.right),
-      content: TextField(controller: controller, textAlign: TextAlign.center),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text("داخستن")),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: kPrimaryGreen),
-          onPressed: () async {
-            final String inputCode = controller.text.trim();
-            final response = await Supabase.instance.client.from('tb_farmer').select().eq('code_farmer', inputCode).maybeSingle();
-            if (response != null && context.mounted) {
-               final prefs = await SharedPreferences.getInstance();
-               await prefs.setInt('farmer_id', response['id_farmer']);
-               await prefs.setString('farmer_code', inputCode);
-               await prefs.setString('job_title', response['job_title']);
-               await prefs.setString('farmer_name', response['name_farmer']);
 
-               Navigator.pop(context);
-               
-               if (response['job_title'] == "سایەق مەکینە") {
-                 Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AddDriverAndWorkPage(farmerId: response['id_farmer'], farmerName: response['name_farmer'], farmerCode: inputCode)));
-               } else {
-                 Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AddFarmerDataPage(farmerId: response['id_farmer'], farmerName: response['name_farmer'], farmerCode: inputCode)));
-               }
-            } else {
-               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("پڕۆفایل نەدۆزرایەوە")));
-            }
-          },
-          child: const Text("گەڕان", style: TextStyle(color: Colors.white)),
-        ),
-      ],
-    ));
-  }
+
+
+
 }
 
 class CustomHeaderClipper extends CustomClipper<Path> {

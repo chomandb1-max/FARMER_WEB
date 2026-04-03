@@ -44,6 +44,9 @@ flutter:
 
   assets:
     - assets/images/app_icons.png
+    - assets/images/fib_qr.png
+    - assets/images/fastpay_qr.png
+    - assets/images/qi_qr.png
 
   fonts:
     - family: KurdishFont
