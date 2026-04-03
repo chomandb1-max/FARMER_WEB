@@ -21,6 +21,7 @@ dependencies:
   # زیادکردنی Hive بۆ داتابەیس کە لەگەڵ وێب دەگونجێت
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  flutter_dotenv: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -47,7 +48,8 @@ flutter:
     - assets/images/fib_qr.png
     - assets/images/fastpay_qr.png
     - assets/images/qi_qr.png
-
+    - .env
+    
   fonts:
     - family: KurdishFont
       fonts:

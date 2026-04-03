@@ -11,6 +11,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter/foundation.dart'; // ئەمە زیاد بکە بۆ ناسینەوەی وێب
 import 'package:flutter/services.dart'; // بۆ SystemNavigator پێویستە
 import 'package:farmer_app/views/admin_page.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // ئیمپۆرتی بکە
+import 'package:farmer_app/utils/formatters.dart';
 
 const kBgLight = Color(0xFFDCE6DF); 
 const kPrimaryGreen = Color(0xFF0A2E29); 
@@ -24,10 +26,10 @@ void main() async {
 
   await Hive.initFlutter();
   hiveService = await HiveService.create();
-
+  await dotenv.load(fileName: ".env");
   await Supabase.initialize(
-    url: 'https://fljchnkqhaopmlexsuru.supabase.co',
-    anonKey: 'sb_publishable_oKnrwnECmxcYk5YtHhQK-Q_bsbgZfci',
+    url: dotenv.env['SUPABASE_URL']!,   
+    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
 
   // لێرە پشکنین دەکەین بزانین پێشتر لۆگین کراوە یان نا
@@ -124,30 +126,6 @@ class CodeInputFormatter extends TextInputFormatter {
     );
   }
 }
-
-
-class EnglishNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    String text = newValue.text;
-    
-    // لیستی گۆڕینی ژمارەکان
-    const kurdish = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-    for (int i = 0; i < 10; i++) {
-      text = text.replaceAll(kurdish[i], english[i]);
-      text = text.replaceAll(persian[i], english[i]);
-    }
-
-    return newValue.copyWith(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
-  }
-  }
 
 
 // لە ناو initState بانگی بکە

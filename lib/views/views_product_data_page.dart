@@ -544,7 +544,7 @@ class _FarmerSummaryPageState extends State<FarmerSummaryPage> {
         const SnackBar(content: Text("بە سەرکەوتوویی سڕایەوە")),
       );
     } catch (e) {
-      print("Error deleting: $e");
+      debugPrint("Error deleting: $e");
     }
   }
   }

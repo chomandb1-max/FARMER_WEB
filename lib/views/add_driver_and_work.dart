@@ -10,52 +10,8 @@ import 'package:farmer_app/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart'; // بۆ SystemNavigator پێویستە
 import 'package:dropdown_search/dropdown_search.dart';
+import 'package:farmer_app/utils/formatters.dart';
 
-class ThousandsSeparatorInputFormatter extends TextInputFormatter {
-  static final intl.NumberFormat _formatter = intl.NumberFormat('#,###');
-
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.text.isEmpty) return newValue;
-
-    // لادانی فاریزە کۆنەکان بۆ ئەوەی دووبارە حساب بکرێتەوە
-    String newText = newValue.text.replaceAll(',', '');
-    
-    // تەنها ئەگەر ژمارە بوو فۆرماتی بکە
-    double? value = double.tryParse(newText);
-    if (value == null) return oldValue;
-
-    String formatted = _formatter.format(value);
-
-    return newValue.copyWith(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-  }
-
-   class EnglishNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    String text = newValue.text;
-    
-    // لیستی گۆڕینی ژمارەکان
-    const kurdish = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-    for (int i = 0; i < 10; i++) {
-      text = text.replaceAll(kurdish[i], english[i]);
-      text = text.replaceAll(persian[i], english[i]);
-    }
-
-    return newValue.copyWith(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
-  }
-  }
 
 class AddDriverAndWorkPage extends StatefulWidget {
   final int farmerId;
@@ -71,6 +27,8 @@ class AddDriverAndWorkPage extends StatefulWidget {
 class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
   //final hiveService hiveService = hiveService();
   final SupabaseClient supabase = Supabase.instance.client;
+    bool _isRegistering = false; // ئەمە بۆ کۆنتڕۆڵکردنی لۆدینگەکەیە
+
 
   final TextEditingController _nameFelahController = TextEditingController();
   final TextEditingController _phoneFelahController = TextEditingController();
@@ -158,7 +116,6 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
         });
       }
     } catch (e) {
-      print("هەڵە لە کاتی Sync: $e");
       // ٣. ئەگەر ئینتەرنێت نەبوو (Offline)، تەنها ئەوەی ناو Hive پیشان بدە
       final localDrivers = await hiveService.getDriversForUser(widget.farmerId);
       setState(() {
@@ -170,27 +127,40 @@ class _AddDriverAndWorkPageState extends State<AddDriverAndWorkPage> {
 
   Future<void> _saveFelah() async {
   if (_nameFelahController.text.isNotEmpty) {
+    // ١. دەستپێکردنی لۆدینگ
+    setState(() => _isRegistering = true);
 
+    try {
       final newDriver = Driver(
         id_farmer_user: widget.farmerId,
         d_name_farmer: _nameFelahController.text,
         d_phone_farmer: _phoneFelahController.text,
         code_farmer: widget.farmerCode,
         add_date: DateTime.now().toIso8601String(),
-        is_synced: false
+        is_synced: false,
       );
 
-       await supabase.from('tb_driver').insert(newDriver.toMap());
+      // ٢. ناردن بۆ سوپابەیس
+      await supabase.from('tb_driver').insert(newDriver.toMap());
+      
       await _fetchAndSyncFelahs();
       _nameFelahController.clear();
       _phoneFelahController.clear();
-       _showSnackBar("جوتیار بە سەرکەوتوویی تۆمار کرا", Colors.green);
-      setState(() {}); // نوێکردنەوەی شاشەکە
+      _showSnackBar("جوتیار بە سەرکەوتوویی تۆمار کرا", Colors.green);
+      
+    } catch (e) {
+      // ٣. مامەڵە لەگەڵ هەڵەی ئینتەرنێت یان سێرڤەر
+      _showSnackBar("هەڵە ڕوویدا: دڵنیابە لە هەبوونی ئینتەرنێت", Colors.red);
+    } finally {
+      // ٤. کۆتاییهێنان بە لۆدینگ لە هەموو بارودۆخێکدا
+      if (mounted) {
+        setState(() => _isRegistering = false);
+      }
+    }
   } else {
-    _showSnackBar("هەڵە:دڵنیابە لە هەبوونی ئینتەرنێت.", Colors.red);
+    _showSnackBar("تکایە ناوی جوتیار بنووسە", Colors.orange);
   }
   }
-
 
   Future<void> _syncPendingWork() async {
     try {
@@ -704,8 +674,17 @@ Future<void> _confirmDelete(Driver f) async {
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 8)),
-                      onPressed: _saveFelah,
-                      child: const Text("تۆمارکردن", style: TextStyle(color: Colors.white,fontSize: 13 ,fontWeight: FontWeight.bold)),
+                      onPressed: _isRegistering ? null : _saveFelah,
+                      child: 
+                        _isRegistering 
+                       ? const SizedBox(
+                        height: 20, 
+                         width: 20, 
+                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                         )
+                     : const Text("تۆمارکردن",
+                       style: TextStyle(color: Colors.white,fontSize: 13 ,
+                       fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],

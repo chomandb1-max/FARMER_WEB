@@ -9,54 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui'; // بۆ ImageFilter و شوشەییەکە پێویستە
 import 'package:flutter/services.dart'; // بۆ SystemNavigator پێویستە
 import 'package:intl/intl.dart' as intl ;
-
+import 'package:farmer_app/utils/formatters.dart';
 // لە ناو کڵاسەکە ئەم گۆڕاوە پێناسە بکە بۆ دوو جار گەڕانەوەکە
 
-class ThousandsSeparatorInputFormatter extends TextInputFormatter {
-  static final intl.NumberFormat _formatter = intl.NumberFormat('#,###');
-
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.text.isEmpty) return newValue;
-
-    // لادانی فاریزە کۆنەکان بۆ ئەوەی دووبارە حساب بکرێتەوە
-    String newText = newValue.text.replaceAll(',', '');
-    
-    // تەنها ئەگەر ژمارە بوو فۆرماتی بکە
-    double? value = double.tryParse(newText);
-    if (value == null) return oldValue;
-
-    String formatted = _formatter.format(value);
-
-    return newValue.copyWith(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
-  }
-  }
-
-  class EnglishNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    String text = newValue.text;
-    
-    // لیستی گۆڕینی ژمارەکان
-    const kurdish = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
-    const english = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-    for (int i = 0; i < 10; i++) {
-      text = text.replaceAll(kurdish[i], english[i]);
-      text = text.replaceAll(persian[i], english[i]);
-    }
-
-    return newValue.copyWith(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
-  }
-  }
 
 
 class AddFarmerDataPage extends StatefulWidget {
@@ -79,6 +34,7 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
  // final hive_service hive_service = hive_service();
   final SupabaseClient supabase = Supabase.instance.client;
   bool isProductView = true;
+  bool _isRegistering = false; // ئەمە بۆ کۆنتڕۆڵکردنی لۆدینگەکەیە
 
   final _pNameController = TextEditingController();
   final _pPriceController = TextEditingController();
@@ -130,7 +86,6 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
         });
       }
     } catch (e) {
-      print("هەڵە لە کاتی Sync: $e");
       // ٣. ئەگەر ئینتەرنێت نەبوو، تەنها داتای ناو مۆبایلەکە (Offline) بخوێنەوە
       final localShops = await hiveService.getShopsForFarmer(widget.farmerId);
       setState(() {
@@ -229,8 +184,10 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
               child:   Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ElevatedButton(
-                onPressed: () async {
+                onPressed: _isRegistering ? null : () async {
                   if (shopController.text.isNotEmpty) {
+                    setState(() => _isRegistering = true); // لۆدینگ دەست پێ دەکات
+                    try {
                     final newShop = ShopTypeModel(
                       t_id_farmer: widget.farmerId,
                       t_name_type: shopController.text,
@@ -240,6 +197,12 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
                     await _fetchAndSyncShops();
                     shopController.clear();
                     _showSnackBar("دوکانەکە بە سەرکەوتوویی تۆمار کرا", Colors.green);
+                    } catch (e) {
+                     _showSnackBar("هەڵەیەک ڕوویدا لە کاتی پەیوەندی بە ئینتەرنێت", Colors.red);
+                    } finally {
+                    // هەمیشە لێرە لۆدینگەکە دەکوژێنینەوە، چ سەرکەوتوو بێت چ هەڵە
+                    if (mounted) setState(() => _isRegistering = false);
+                   }
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -247,7 +210,14 @@ class _AddFarmerDataPageState extends State<AddFarmerDataPage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                 ),
-                child: const Text("تۆمارکردن", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                 child:
+                  _isRegistering 
+                  ? const SizedBox(
+                   height: 20,
+                  width: 20,
+                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  ) 
+                : const Text("تۆمارکردن", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
               ),
             ),
