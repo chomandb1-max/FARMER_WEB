@@ -11,8 +11,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter/foundation.dart'; // ئەمە زیاد بکە بۆ ناسینەوەی وێب
 import 'package:flutter/services.dart'; // بۆ SystemNavigator پێویستە
 import 'package:farmer_app/views/admin_page.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // ئیمپۆرتی بکە
 import 'package:farmer_app/utils/formatters.dart';
+import 'config/env_config.dart';
 
 const kBgLight = Color(0xFFDCE6DF); 
 const kPrimaryGreen = Color(0xFF0A2E29); 
@@ -26,10 +26,15 @@ void main() async {
 
   await Hive.initFlutter();
   hiveService = await HiveService.create();
-  await dotenv.load(fileName: ".env"); // بارکردنی فایلەکە
+
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,   
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+  url: AppConfig.supabaseUrl,
+  anonKey: AppConfig.supabaseAnonKey,
+  );
+  
+  await Supabase.initialize(
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
   );
 
   // لێرە پشکنین دەکەین بزانین پێشتر لۆگین کراوە یان نا

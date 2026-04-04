@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:farmer_app/main.dart';
 import 'package:farmer_app/views/admin_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // دڵنیابە ئەمەت ئیمپۆرت کردووە
+import 'package:farmer_app/config/env_config.dart';
   class HelpPage extends StatefulWidget {
   const HelpPage({super.key});
 
@@ -45,9 +45,8 @@ class _HelpPageState extends State<HelpPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final String envUser = dotenv.env['ADMIN_USER'] ?? ""; 
-                final String envPass = dotenv.env['ADMIN_PASS'] ?? "";
-                // لێرە یوزەر و پاسۆردە نهێنییەکەی خۆت دابنێ
+                final String envUser = AppConfig.adminUser; 
+                final String envPass = AppConfig.adminPass;                // لێرە یوزەر و پاسۆردە نهێنییەکەی خۆت دابنێ
                 if (userController.text == envUser && passController.text == envPass) {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setBool('is_admin_logged_in', true);

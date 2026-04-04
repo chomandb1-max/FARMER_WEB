@@ -48,7 +48,6 @@ flutter:
     - assets/images/fib_qr.png
     - assets/images/fastpay_qr.png
     - assets/images/qi_qr.png
-    - .env
     
   fonts:
     - family: KurdishFont
