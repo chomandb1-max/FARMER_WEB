@@ -26,7 +26,7 @@ void main() async {
 
   await Hive.initFlutter();
   hiveService = await HiveService.create();
-  await dotenv.load(fileName: ".env");
+  await dotenv.load(fileName: ".env"); // بارکردنی فایلەکە
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,   
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
